@@ -40,6 +40,9 @@ namespace ew {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
 
+		//Flip the damn textures
+		stbi_set_flip_vertically_on_load(true);
+
 		//Black border by default
 		float borderColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
