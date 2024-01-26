@@ -59,6 +59,7 @@ int main() {
 	//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
 	shader.use();
 	shader.setInt("_MainTex", 0);
+	shader.setInt("_NormalMap", 1);
 	shader.setVec3("_EyePos", camera.position);
 
 	glEnable(GL_CULL_FACE);
