@@ -33,4 +33,5 @@ void main(){
 	vs_out.TBN = TBN;
 	//Set vertex position to homogeneous clip space
 	gl_Position = _ViewProjection * _Model * vec4(vPos,1.0);
+
 }

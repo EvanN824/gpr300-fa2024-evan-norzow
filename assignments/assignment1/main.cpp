@@ -39,7 +39,7 @@ float prevFrameTime;
 float deltaTime;
 
 //FrameBuffer stuffs
-unsigned int fbo, colorBuffer, depthBuffer;
+unsigned int fbo, colorBuffer, depthBuffer, dummyVAO;
 
 int main() {
 	GLFWwindow* window = initWindow("Assignment 1", screenWidth, screenHeight);
@@ -54,6 +54,7 @@ int main() {
 	camera.fov = 60.0f; //Vertical field of view, in degrees
 
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
+	ew::Shader postprocess = ew::Shader("assets/postprocess.vert", "assets/postprocess.frag");
 	ew::Model monkeyModel = ew::Model("assets/suzanne.fbx");
 
 	//FrameBuffer object creation
@@ -67,6 +68,7 @@ int main() {
 
 	//16 bit Depth buffer
 	glGenTextures(1, &depthBuffer);
+	//Swap with a renderbuffer object if you don't wanna sample
 	glBindTexture(GL_TEXTURE_2D, depthBuffer);
 	//MAKE SURE COLOR AND DEPTH BUFFERS ARE OF IDENTICAL DIMENSIONS
 	glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, screenWidth, screenHeight);
@@ -77,6 +79,9 @@ int main() {
 
 	//Requires a depth buffer to work.
 	glEnable(GL_DEPTH_TEST);
+
+	//For dummy VAO
+	glCreateVertexArrays(1, &dummyVAO);
 
 	GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (fboStatus != GL_FRAMEBUFFER_COMPLETE) {
@@ -117,15 +122,33 @@ int main() {
 		shader.setFloat("_Material.Ks", material.Ks);
 		shader.setFloat("_Material.Shininess", material.Shininess);
 
-		//RENDER
-		//Clears backbuffer color & depth values
+		//BIND FBO / FRAMEBUFFER
+		//Clears framebuffer color & depth values
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		glViewport(0, 0, screenWidth, screenHeight);
 		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//DRAW SCENE
 		shader.use();
-		//shader.setMat4("_Model", glm::mat4(1.0f));
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		monkeyModel.draw(); //Draws monkey model using current shader
+
+		//UNBIND FBO
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//POSTPROCESS SHADER (Sample from colorbuffer)
+		postprocess.use();
+		//postprocess.se
+
+		//DRAW FULLSCREEN TRIANGLE
+
+		glBindTextureUnit(0, colorBuffer);
+		glBindVertexArray(dummyVAO);
+		//3 vertices because triangle
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+
 
 		drawUI();
 
