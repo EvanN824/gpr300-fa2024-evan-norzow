@@ -32,6 +32,8 @@ struct Material {
 	float Shininess = 128;
 }material;
 
+float gamma = 2.2f;
+
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
@@ -91,7 +93,6 @@ int main() {
 
 
 	//Bind brick texture to texture unit 0 
-	glBindTextureUnit(0, rockTexture);
 	glBindTextureUnit(1, rockNormMap);
 	//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
 	shader.use();
@@ -129,6 +130,7 @@ int main() {
 		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//DRAW SCENE
+		glBindTextureUnit(0, rockTexture);
 		shader.use();
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
@@ -140,10 +142,10 @@ int main() {
 
 		//POSTPROCESS SHADER (Sample from colorbuffer)
 		postprocess.use();
+		postprocess.setFloat("_Gamma", gamma);
 		//postprocess.se
 
 		//DRAW FULLSCREEN TRIANGLE
-
 		glBindTextureUnit(0, colorBuffer);
 		glBindVertexArray(dummyVAO);
 		//3 vertices because triangle
@@ -180,6 +182,11 @@ void drawUI() {
 		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
 	}
+	//Gamma
+	if (ImGui::CollapsingHeader("Gamma"))
+	{
+		ImGui::SliderFloat("Gamma", &gamma, 2.0f, 2.5f);
+	} 
 	ImGui::End();
 
 
