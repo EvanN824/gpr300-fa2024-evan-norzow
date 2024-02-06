@@ -122,6 +122,7 @@ int main() {
 		shader.setFloat("_Material.Kd", material.Kd);
 		shader.setFloat("_Material.Ks", material.Ks);
 		shader.setFloat("_Material.Shininess", material.Shininess);
+		postprocess.setFloat("_Gamma", gamma);
 
 		//BIND FBO / FRAMEBUFFER
 		//Clears framebuffer color & depth values
@@ -142,7 +143,6 @@ int main() {
 
 		//POSTPROCESS SHADER (Sample from colorbuffer)
 		postprocess.use();
-		postprocess.setFloat("_Gamma", gamma);
 		//postprocess.se
 
 		//DRAW FULLSCREEN TRIANGLE
