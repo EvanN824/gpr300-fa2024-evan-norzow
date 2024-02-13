@@ -14,16 +14,19 @@
 #include <ew/transform.h>
 #include <ew/cameraController.h>
 #include <ew/texture.h>
-
+#include <ew/procGen.h>
 
 
 ew::Camera camera;
+ew::Camera lightCam;
 ew::CameraController cameraController;
 ew::Transform monkeyTransform;
+ew::Transform planeTransform;
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
+void makeShadowBuffer();
 
 struct Material {
 	float Ka = 1.0;
@@ -32,7 +35,7 @@ struct Material {
 	float Shininess = 128;
 }material;
 
-float gamma = 2.2f;
+float _gamma = 2.2f;
 
 //Global state
 int screenWidth = 1080;
@@ -43,8 +46,10 @@ float deltaTime;
 //FrameBuffer stuffs
 unsigned int fbo, colorBuffer, depthBuffer, dummyVAO;
 
+unsigned int shadowfbo, shadowMap;
+
 int main() {
-	GLFWwindow* window = initWindow("Assignment 1", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 2", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	GLuint rockTexture = ew::loadTexture("assets/Rock051_2K-JPG_Color.jpg");
@@ -55,9 +60,23 @@ int main() {
 	camera.aspectRatio = (float)screenWidth / screenHeight;
 	camera.fov = 60.0f; //Vertical field of view, in degrees
 
+	lightCam.position = glm::vec3(0.0f, 5.0f, 5.0f); //Possibly change later
+	lightCam.target = glm::vec3(0.0f, 0.0f, 0.0f);
+	lightCam.aspectRatio = 1;
+	lightCam.orthographic = true;
+	lightCam.orthoHeight = 10.0f;
+
+	//lightcam.viewmatrix
+	glm::mat4 lightMatrix = lightCam.projectionMatrix() * lightCam.viewMatrix();
+
+	ew::Shader depthShader = ew::Shader("assets/depthOnly.vert", "assets/depthOnly.frag");
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
 	ew::Shader postprocess = ew::Shader("assets/postprocess.vert", "assets/postprocess.frag");
 	ew::Model monkeyModel = ew::Model("assets/suzanne.fbx");
+	ew::Mesh planeMesh = ew::Mesh(ew::createPlane(10, 10, 5));
+
+	//creates your shadow buffer yay
+	makeShadowBuffer();
 
 	//FrameBuffer object creation
 	glCreateFramebuffers(1, &fbo);
@@ -116,13 +135,30 @@ int main() {
 		//Rotate model around Y axis
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
 
+		//Scoot plane transform down
+		planeTransform.position = glm::vec3(0.0, -3.0, 0.0);
+
 		//transform.modelMatrix() combines translation, rotation, and scale into a 4x4 model matrix
 
 		shader.setFloat("_Material.Ka", material.Ka);
 		shader.setFloat("_Material.Kd", material.Kd);
 		shader.setFloat("_Material.Ks", material.Ks);
 		shader.setFloat("_Material.Shininess", material.Shininess);
-		postprocess.setFloat("_Gamma", gamma);
+		postprocess.setFloat("_Gamma", _gamma);
+
+		//Draw Shadow
+		glBindFramebuffer(GL_FRAMEBUFFER, shadowfbo);
+		glViewport(0, 0, screenWidth, screenHeight);
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		depthShader.use();
+		depthShader.setMat4("_Model", monkeyTransform.modelMatrix());
+		depthShader.setMat4("_ViewProjection", lightMatrix);
+		monkeyModel.draw(); //Draws monkey model using current shader
+		depthShader.setMat4("_Model", planeTransform.modelMatrix());
+		planeMesh.draw();
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		//BIND FBO / FRAMEBUFFER
 		//Clears framebuffer color & depth values
@@ -136,6 +172,8 @@ int main() {
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		monkeyModel.draw(); //Draws monkey model using current shader
+		shader.setMat4("_Model", planeTransform.modelMatrix());
+		planeMesh.draw();
 
 		//UNBIND FBO
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -143,7 +181,6 @@ int main() {
 
 		//POSTPROCESS SHADER (Sample from colorbuffer)
 		postprocess.use();
-		//postprocess.se
 
 		//DRAW FULLSCREEN TRIANGLE
 		glBindTextureUnit(0, colorBuffer);
@@ -183,12 +220,22 @@ void drawUI() {
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
 	}
 	//Gamma
-	if (ImGui::CollapsingHeader("Gamma"))
+	if (ImGui::CollapsingHeader("Gamma_Settings"))
 	{
-		ImGui::SliderFloat("Gamma", &gamma, 2.0f, 2.5f);
+		ImGui::SliderFloat("Gamma_Value", &_gamma, 2.0f, 2.5f);
 	} 
 	ImGui::End();
 
+	ImGui::Begin("Shadow Map");
+	//Using a Child allow to fill all the space of the window.
+	ImGui::BeginChild("Shadow Map");
+	//Stretch image to be window size
+	ImVec2 windowSize = ImGui::GetWindowSize();
+	//Invert 0-1 V to flip vertically for ImGui display
+	//shadowMap is the texture2D handle
+	ImGui::Image((ImTextureID)shadowMap, windowSize, ImVec2(0, 1), ImVec2(1, 0));
+	ImGui::EndChild();
+	ImGui::End();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -234,5 +281,25 @@ GLFWwindow* initWindow(const char* title, int width, int height) {
 	ImGui_ImplOpenGL3_Init();
 
 	return window;
+}
+
+void makeShadowBuffer()
+{
+	//ShadowMap depth buffer creation
+	glCreateFramebuffers(1, &shadowfbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadowfbo);
+	glGenTextures(1, &shadowMap);
+	glBindTexture(GL_TEXTURE_2D, shadowMap);
+	//16 bit depth values, 2k res.
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, 2048, 2048);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	//pixels outside frustum should be white (max dist)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
 }
 

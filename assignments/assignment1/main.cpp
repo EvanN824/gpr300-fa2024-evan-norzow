@@ -32,7 +32,7 @@ struct Material {
 	float Shininess = 128;
 }material;
 
-float gamma = 2.2f;
+float _gamma = 2.2f;
 
 //Global state
 int screenWidth = 1080;
@@ -122,7 +122,7 @@ int main() {
 		shader.setFloat("_Material.Kd", material.Kd);
 		shader.setFloat("_Material.Ks", material.Ks);
 		shader.setFloat("_Material.Shininess", material.Shininess);
-		postprocess.setFloat("_Gamma", gamma);
+		postprocess.setFloat("_Gamma", _gamma);
 
 		//BIND FBO / FRAMEBUFFER
 		//Clears framebuffer color & depth values
@@ -185,7 +185,7 @@ void drawUI() {
 	//Gamma
 	if (ImGui::CollapsingHeader("Gamma"))
 	{
-		ImGui::SliderFloat("Gamma", &gamma, 2.0f, 2.5f);
+		ImGui::SliderFloat("Gamma", &_gamma, 2.0f, 2.5f);
 	} 
 	ImGui::End();
 
