@@ -4,6 +4,7 @@
 #include <ew/external/glad.h>
 
 #include <GLFW/glfw3.h>
+#include <glm/ext.hpp>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -36,6 +37,8 @@ struct Material {
 }material;
 
 float _gamma = 2.2f;
+glm::vec3 lightDir = glm::vec3(0,-1,0);
+const float lightDist = 5;
 
 //Global state
 int screenWidth = 1080;
@@ -67,7 +70,7 @@ int main() {
 	lightCam.orthoHeight = 10.0f;
 
 	//lightcam.viewmatrix
-	glm::mat4 lightMatrix = lightCam.projectionMatrix() * lightCam.viewMatrix();
+	glm::mat4 lightMatrix;
 
 	ew::Shader depthShader = ew::Shader("assets/depthOnly.vert", "assets/depthOnly.frag");
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
@@ -132,6 +135,9 @@ int main() {
 
 		cameraController.move(window, &camera, deltaTime);
 
+		lightCam.position = (lightDir * -1.0f) * lightDist;
+	    lightMatrix = lightCam.projectionMatrix() * lightCam.viewMatrix();
+
 		//Rotate model around Y axis
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
 
@@ -139,7 +145,6 @@ int main() {
 		planeTransform.position = glm::vec3(0.0, -3.0, 0.0);
 
 		//transform.modelMatrix() combines translation, rotation, and scale into a 4x4 model matrix
-
 		shader.setFloat("_Material.Ka", material.Ka);
 		shader.setFloat("_Material.Kd", material.Kd);
 		shader.setFloat("_Material.Ks", material.Ks);
@@ -148,7 +153,8 @@ int main() {
 
 		//Draw Shadow
 		glBindFramebuffer(GL_FRAMEBUFFER, shadowfbo);
-		glViewport(0, 0, screenWidth, screenHeight);
+		//Don't use screenwidth and height, use the same as the other stuff
+		glViewport(0, 0, 2048, 2048);
 		glClear(GL_DEPTH_BUFFER_BIT);
 
 		depthShader.use();
@@ -169,6 +175,9 @@ int main() {
 		//DRAW SCENE
 		glBindTextureUnit(0, rockTexture);
 		shader.use();
+		shader.setInt("_ShadowMap", shadowMap);
+		shader.setMat4("_LightViewProj", lightMatrix);
+		shader.setVec3("_LightDirection", lightDir);
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		monkeyModel.draw(); //Draws monkey model using current shader
@@ -224,6 +233,14 @@ void drawUI() {
 	{
 		ImGui::SliderFloat("Gamma_Value", &_gamma, 2.0f, 2.5f);
 	} 
+	//LightDir
+	if (ImGui::SliderFloat3("Light Direction", glm::value_ptr(lightDir), -1.0f, 1.0f))
+	{
+		if (glm::length(lightDir) > 0)
+		{
+			glm::normalize(lightDir);
+		}
+	}
 	ImGui::End();
 
 	ImGui::Begin("Shadow Map");
@@ -236,6 +253,11 @@ void drawUI() {
 	ImGui::Image((ImTextureID)shadowMap, windowSize, ImVec2(0, 1), ImVec2(1, 0));
 	ImGui::EndChild();
 	ImGui::End();
+
+	//Expects the start of a float array
+	//Use ImGui::SliderFloat3("name", &lightdirection (it's a glm vec3), -1.0f, 1.0f;
+	//If on imgui returns true if something has changed, so do if (above), normalize the vector.
+	//if glm::length(lightdir) > 0 then do it
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -301,5 +323,6 @@ void makeShadowBuffer()
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowMap, 0);
 }
 

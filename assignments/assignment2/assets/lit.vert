@@ -5,6 +5,7 @@ layout(location = 1) in vec3 vNormal; //Vertex position in model space
 layout(location = 2) in vec2 vTexCoord;
 layout(location = 3) in vec3 vTangent;
 
+uniform mat4 _LightViewProj;
 uniform mat4 _Model; //Model->World Matrix
 uniform mat4 _ViewProjection; //Combined View->Projection Matrix
 
@@ -16,7 +17,11 @@ out Surface{
 	mat3 TBN;
 }vs_out;
 
+out vec4 LightSpacePos;
+
 void main(){
+
+	LightSpacePos = _LightViewProj * _Model * vec4(vPos, 1.0f);
 
 	vec3 vBitangent = cross(vNormal,vTangent);
 

@@ -7,12 +7,15 @@ in Surface{
 	mat3 TBN;
 }fs_in;
 
+in vec4 LightSpacePos;
+
 uniform sampler2D _MainTex; //2D texture sampler
 uniform sampler2D _NormalMap;
+uniform sampler2D _ShadowMap;
 
 uniform vec3 _EyePos;
 //Light pointing straight down
-uniform vec3 _LightDirection = vec3(0.0,-1.0,0.0);
+uniform vec3 _LightDirection;
 uniform vec3 _LightColor = vec3(1.0); //White light
 //Base ambient lighting
 //It's half the color of the background to make it blend in!!
@@ -27,6 +30,16 @@ struct Material{
 };
 uniform Material _Material;
 
+float ShadowCalc(vec4 fragPosLightSpace)
+{
+	//yoinked from LearnOpenGL
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	projCoords = projCoords * 0.5f + 0.5f;
+	float closestDepth = texture(_ShadowMap, projCoords.xy).r;
+	float currentDepth = projCoords.z;
+	return step(closestDepth,currentDepth);
+}
+
 void main(){
 	//Make sure fragment normal is still length 1 after interpolation.
 	//vec3 normal = normalize(fs_in.WorldNormal);
@@ -36,8 +49,10 @@ void main(){
 	normal = normal * 2.0 - 1.0;
 	normal = normalize(fs_in.TBN * normal);
 
+	float shadow = ShadowCalc(LightSpacePos);
+
 	//Light pointing straight down
-	vec3 toLight = -_LightDirection;
+	vec3 toLight = _LightDirection;
 	float diffuseFactor = max(dot(normal,toLight),0.0);
 	//Direction towards eye
 	vec3 toEye = normalize(_EyePos - fs_in.WorldPos);
@@ -48,6 +63,7 @@ void main(){
 	vec3 lightColor = (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor) * _LightColor;
 	//Ambient lighting
 	lightColor+=_AmbientColor * _Material.Ka;
+	lightColor *= 1.0f - shadow;
 	vec3 objectColor = texture(_MainTex,fs_in.TexCoord).rgb;
 	FragColor = vec4(objectColor * lightColor,1.0);
 }
