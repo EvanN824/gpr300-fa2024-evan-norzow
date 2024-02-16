@@ -38,7 +38,7 @@ struct Material {
 
 float _gamma = 2.2f;
 glm::vec3 lightDir = glm::vec3(0,-1,0);
-const float lightDist = 5;
+const float lightDist = 7;
 
 //Global state
 int screenWidth = 1080;
@@ -122,8 +122,6 @@ int main() {
 	shader.setInt("_NormalMap", 1);
 	shader.setVec3("_EyePos", camera.position);
 
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK); //Back face culling
 	glEnable(GL_DEPTH_TEST); //Depth testing
 
 	while (!glfwWindowShouldClose(window)) {
@@ -157,6 +155,9 @@ int main() {
 		glViewport(0, 0, 2048, 2048);
 		glClear(GL_DEPTH_BUFFER_BIT);
 
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
+
 		depthShader.use();
 		depthShader.setMat4("_Model", monkeyTransform.modelMatrix());
 		depthShader.setMat4("_ViewProjection", lightMatrix);
@@ -174,8 +175,14 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//DRAW SCENE
 		glBindTextureUnit(0, rockTexture);
+		glBindTextureUnit(2, shadowMap);
+
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+
+
 		shader.use();
-		shader.setInt("_ShadowMap", shadowMap);
+		shader.setInt("_ShadowMap", 2);
 		shader.setMat4("_LightViewProj", lightMatrix);
 		shader.setVec3("_LightDirection", lightDir);
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
