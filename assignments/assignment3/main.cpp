@@ -57,7 +57,7 @@ float prevFrameTime;
 float deltaTime;
 
 //FrameBuffer stuffs
-unsigned int dummyVAO, colorBuffer;
+unsigned int postProcessVAO, deferredLitVAO, colorBuffer;
 
 unsigned int shadowfbo, shadowMap;
 
@@ -150,9 +150,8 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//DRAW SCENE
 		glBindTextureUnit(0, rockTexture);
-		glBindTextureUnit(2, shadowMap);
-		//Bind brick texture to texture unit 0 
 		glBindTextureUnit(1, rockNormMap);
+		//Bind brick texture to texture unit 0 
 		//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
 		geometryPass.setInt("_MainTex", 0);
 		geometryPass.setInt("_NormalMap", 1);
@@ -160,7 +159,6 @@ int main() {
 
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
-
 
 		geometryPass.use();
 		geometryPass.setMat4("_Model", monkeyTransform.modelMatrix());
@@ -187,9 +185,15 @@ int main() {
 		glBindTextureUnit(1, gBuffer.colorBuffer[1]);
 		glBindTextureUnit(2, gBuffer.colorBuffer[2]);
 		glBindTextureUnit(3, shadowMap); //For shadow mapping
+		//dunno if that's necessary.
+		litPass.setInt("_gPositions", 0);
+		litPass.setInt("_gNormals", 1);
+		litPass.setInt("_gAlbedo", 2);
+		litPass.setInt("_ShadowMap", 3);
+
 
 		//Dummy VAO is a vector array object that we write to, to create the fullscreen triangle
-		glBindVertexArray(dummyVAO);
+		glBindVertexArray(deferredLitVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -201,7 +205,8 @@ int main() {
 
 		//DRAW FULLSCREEN TRIANGLE
 		glBindTextureUnit(0, colorBuffer);
-		glBindVertexArray(dummyVAO);
+		postprocess.setInt("_ColorBuffer", 0);
+		glBindVertexArray(postProcessVAO);
 		//3 vertices because triangle
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 

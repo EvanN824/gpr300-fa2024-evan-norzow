@@ -9,7 +9,6 @@ uniform vec3 _LightDirection;
 uniform vec3 _LightColor = vec3(1.0); //White light
 //Base ambient lighting
 //It's half the color of the background to make it blend in!!
-uniform vec3 _AmbientColor = vec3(0.3,0.4,0.46);
 
 //KD + KS should not exceed 1! for realism at least
 struct Material{
@@ -20,10 +19,10 @@ struct Material{
 };
 uniform Material _Material;
 
-uniform layout(binding = 0) sampler2D _gPositions;
-uniform layout(binding = 1) sampler2D _gNormals;
-uniform layout(binding = 2) sampler2D _gAlbedo;
-uniform layout(binding = 3) sampler2D _ShadowMap;
+uniform layout(location = 0) sampler2D _gPositions;
+uniform layout(location = 1) sampler2D _gNormals;
+uniform layout(location = 2) sampler2D _gAlbedo;
+uniform layout(location = 3) sampler2D _ShadowMap;
 
 float ShadowCalc(vec4 fragPosLightSpace, float bias)
 {
@@ -73,7 +72,7 @@ void main(){
 	vec3 h = normalize(toLight + toEye);
 	float specularFactor = pow(max(dot(normal,h),0.0),_Material.Shininess);
 	//Combo of specular and diffuse reflection
-	vec3 lightColor = (((_AmbientColor * _Material.Ka) + (1.0f - shadow)) * (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor)) * _LightColor;
+	vec3 lightColor = (((albedo * _Material.Ka) + (1.0f - shadow)) * (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor)) * _LightColor;
 
 	FragColor = vec4(albedo * lightColor,1.0);
 }
