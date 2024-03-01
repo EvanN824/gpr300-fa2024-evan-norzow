@@ -57,14 +57,14 @@ float prevFrameTime;
 float deltaTime;
 
 //FrameBuffer stuffs
-unsigned int postProcessVAO, deferredLitVAO, colorBuffer;
+unsigned int postProcessVAO, deferredLitVAO, colorBuffer, colorFbo;
 
 unsigned int shadowfbo, shadowMap;
 
 FrameBuffer gBuffer;
 
 int main() {
-	GLFWwindow* window = initWindow("Assignment 2", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 3", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	GLuint rockTexture = ew::loadTexture("assets/Rock051_2K-JPG_Color.jpg");
@@ -96,14 +96,22 @@ int main() {
 	makeShadowBuffer();
 
 	gBuffer = createGBuffer(screenWidth, screenHeight);
-
-	//Requires a depth buffer to work.
-	glEnable(GL_DEPTH_TEST);
-
-	//For dummy VAO
-	//glCreateVertexArrays(1, &dummyVAO);
-
 	glEnable(GL_DEPTH_TEST); //Depth testing
+
+	//Creates color buffer stuffs.
+	glCreateFramebuffers(1, &colorFbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, colorFbo);
+
+	//8 bit RGBA color buffer
+	glGenTextures(1, &colorBuffer);
+	glBindTexture(GL_TEXTURE_2D, colorBuffer);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16, screenWidth, screenHeight);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorBuffer, 0);
+
+
+	//Sets up VAOs
+	glCreateVertexArrays(1, &postProcessVAO);
+	glCreateVertexArrays(1, &deferredLitVAO);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -153,14 +161,16 @@ int main() {
 		glBindTextureUnit(1, rockNormMap);
 		//Bind brick texture to texture unit 0 
 		//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
-		geometryPass.setInt("_MainTex", 0);
-		geometryPass.setInt("_NormalMap", 1);
-		geometryPass.setVec3("_EyePos", camera.position);
 
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
 
 		geometryPass.use();
+
+		geometryPass.setInt("_MainTex", 0);
+		geometryPass.setInt("_NormalMap", 1);
+		geometryPass.setVec3("_EyePos", camera.position);
+
 		geometryPass.setMat4("_Model", monkeyTransform.modelMatrix());
 		geometryPass.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		monkeyModel.draw(); //Draws monkey model using current shader
@@ -168,7 +178,7 @@ int main() {
 		planeMesh.draw();
 
 		//drawing to colorbuffer because it be gamer time.
-		glBindFramebuffer(GL_FRAMEBUFFER, colorBuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, colorFbo);
 		glViewport(0, 0, gBuffer.width, gBuffer.height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -197,6 +207,7 @@ int main() {
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, screenWidth, screenHeight);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//POSTPROCESS SHADER (Sample from colorbuffer)
@@ -339,7 +350,7 @@ void makeShadowBuffer()
 
 FrameBuffer createGBuffer(unsigned int width, unsigned int height)
 {
-	FrameBuffer f_buffer;
+	FrameBuffer f_buffer = FrameBuffer();
 	f_buffer.width = width;
 	f_buffer.height = height;
 

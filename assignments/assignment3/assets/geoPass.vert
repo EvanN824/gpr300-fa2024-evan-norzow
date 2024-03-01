@@ -16,8 +16,6 @@ out Surface{
 	mat3 TBN;
 }vs_out;
 
-out vec4 LightSpacePos;
-
 void main(){
 
 
