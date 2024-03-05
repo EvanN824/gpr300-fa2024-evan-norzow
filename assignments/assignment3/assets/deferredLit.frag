@@ -19,10 +19,41 @@ struct Material{
 };
 uniform Material _Material;
 
+//deferredLit.frag
+struct PointLight
+{
+	vec3 position;
+	float radius;
+	vec4 color;
+};
+#define MAX_POINT_LIGHTS 64
+uniform PointLight _PointLights[MAX_POINT_LIGHTS];
+
+
 uniform layout(location = 0) sampler2D _gPositions;
 uniform layout(location = 1) sampler2D _gNormals;
 uniform layout(location = 2) sampler2D _gAlbedo;
 uniform layout(location = 3) sampler2D _ShadowMap;
+
+vec3 CalcPointLight(PointLight pl, vec3 normal, vec3 wPos)
+{
+	vec3 diff = pl.position - wPos;
+	vec3 toLight = normalize(diff);
+
+	float diffuseFactor = max(dot(normal,toLight),0.0);
+	//Direction towards eye
+	vec3 toEye = normalize(_EyePos - wPos);
+	//Blinn-phong uses half angle
+	vec3 h = normalize(toLight + toEye);
+	float specularFactor = pow(max(dot(normal,h),0.0),_Material.Shininess);
+
+	vec3 lightColor = (diffuseFactor + specularFactor) * pl.color.xyz;
+	//attenuate here.
+	float d = length(diff);
+	//linear attenuation
+	lightColor *= clamp(((pl.radius - diff)/pl.radius),0.0,1.0);
+	return lightColor;
+}
 
 float ShadowCalc(vec4 fragPosLightSpace, float bias)
 {
@@ -74,5 +105,12 @@ void main(){
 	//Combo of specular and diffuse reflection
 	vec3 lightColor = (((albedo * _Material.Ka) + (1.0f - shadow)) * (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor)) * _LightColor;
 
-	FragColor = vec4(albedo * lightColor,1.0);
+	vec3 totalLight = vec3(0);
+	totalLight += lightColor;
+	for (int i = 0; i < 2; i++)
+	{
+		totalLight += CalcPointLight(_PointLights[i], normal, worldPos);
+	}
+
+	FragColor = vec4(albedo * totalLight,1.0);
 }

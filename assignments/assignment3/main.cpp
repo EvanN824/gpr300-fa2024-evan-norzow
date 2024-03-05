@@ -44,6 +44,15 @@ struct FrameBuffer {
 	unsigned int height;
 };
 
+struct PointLight {
+	glm::vec3 position;
+	float radius;
+	glm::vec4 color;
+};
+const int MAX_POINT_LIGHTS = 64;
+PointLight pointLights[MAX_POINT_LIGHTS];
+
+
 FrameBuffer createGBuffer(unsigned int width, unsigned int height);
 
 float _gamma = 2.2f;
@@ -69,6 +78,16 @@ int main() {
 
 	GLuint rockTexture = ew::loadTexture("assets/Rock051_2K-JPG_Color.jpg");
 	GLuint rockNormMap = ew::loadTexture("assets/Rock051_2K-JPG_NormalGL.jpg");
+
+	//Light volume stuffs.
+	pointLights[0] = PointLight();
+	pointLights[0].position = glm::vec3(3.0f, 0.0f, 0.0f);
+	pointLights[0].radius = 4;
+	pointLights[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	pointLights[1] = PointLight();
+	pointLights[1].position = glm::vec3(-3.0f, 0.0f, 0.0f);
+	pointLights[1].radius = 4;
+	pointLights[1].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
 	camera.target = glm::vec3(0.0f, 0.0f, 0.0f); //Look at the center of the scene
@@ -189,6 +208,15 @@ int main() {
 		litPass.setFloat("_Material.Kd", material.Kd);
 		litPass.setFloat("_Material.Ks", material.Ks);
 		litPass.setFloat("_Material.Shininess", material.Shininess);
+
+		//Set shader uniforms
+		for (int i = 0; i < 2; i++) {
+			//Creates prefix "_PointLights[0]." etc
+			std::string prefix = "_PointLights[" + std::to_string(i) + "].";
+			litPass.setVec3(prefix + "position", pointLights[i].position);
+			litPass.setVec3(prefix + "color", pointLights[i].color);
+			litPass.setFloat(prefix + "radius", pointLights[i].radius);
+		}
 
 		//Bind g-buffer textures
 		glBindTextureUnit(0, gBuffer.colorBuffer[0]);
