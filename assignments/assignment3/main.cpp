@@ -81,11 +81,11 @@ int main() {
 
 	//Light volume stuffs.
 	pointLights[0] = PointLight();
-	pointLights[0].position = glm::vec3(3.0f, 0.0f, 0.0f);
+	pointLights[0].position = glm::vec3(4.0f, 0.0f, 0.0f);
 	pointLights[0].radius = 4;
 	pointLights[0].color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	pointLights[1] = PointLight();
-	pointLights[1].position = glm::vec3(-3.0f, 0.0f, 0.0f);
+	pointLights[1].position = glm::vec3(-4.0f, 0.0f, 0.0f);
 	pointLights[1].radius = 4;
 	pointLights[1].color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 
@@ -107,9 +107,11 @@ int main() {
 	ew::Shader geometryPass = ew::Shader("assets/geoPass.vert", "assets/geoPass.frag");
 	ew::Shader litPass = ew::Shader("assets/deferredLit.vert", "assets/deferredLit.frag");
 	ew::Shader postprocess = ew::Shader("assets/postprocess.vert", "assets/postprocess.frag");
+	ew::Shader lightOrb = ew::Shader("assets/lightOrb.vert", "assets/lightOrb.frag");
 
 	ew::Model monkeyModel = ew::Model("assets/suzanne.fbx");
 	ew::Mesh planeMesh = ew::Mesh(ew::createPlane(10, 10, 5));
+	ew::Mesh sphereMesh = ew::Mesh(ew::createSphere(1.0f, 8));
 
 	//creates your shadow buffer yay
 	makeShadowBuffer();
@@ -214,7 +216,7 @@ int main() {
 			//Creates prefix "_PointLights[0]." etc
 			std::string prefix = "_PointLights[" + std::to_string(i) + "].";
 			litPass.setVec3(prefix + "position", pointLights[i].position);
-			litPass.setVec3(prefix + "color", pointLights[i].color);
+			litPass.setVec4(prefix + "color", pointLights[i].color);
 			litPass.setFloat(prefix + "radius", pointLights[i].radius);
 		}
 
@@ -233,6 +235,33 @@ int main() {
 		//Dummy VAO is a vector array object that we write to, to create the fullscreen triangle
 		glBindVertexArray(deferredLitVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+		//LightOrb shenanigans. Basically another forward shading pass because deferred shading has difficulties with numerous materials.
+
+
+		//glDisable(GL_DEPTH_TEST); //turning off depth testing for now...
+
+		//This is called blitting!
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.fbo); //Read from gBuffer 
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, colorFbo); //Write to current fbo
+		glBlitFramebuffer(
+			0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST
+		);
+
+		//Draw all light orbs
+		lightOrb.use();
+		lightOrb.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		for (int i = 0; i < 2; i++)
+		{
+			glm::mat4 m = glm::mat4(1.0f);
+			m = glm::translate(m, pointLights[i].position);
+			m = glm::scale(m, glm::vec3(0.2f)); //Whatever radius you want
+
+			lightOrb.setMat4("_Model", m);
+			lightOrb.setVec3("_Color", pointLights[i].color);
+			sphereMesh.draw();
+		}
+
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, screenWidth, screenHeight);
