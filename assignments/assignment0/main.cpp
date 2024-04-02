@@ -15,7 +15,7 @@
 #include <ew/cameraController.h>
 #include <ew/texture.h>
 
-
+#include "TransformHierarchy.h"
 
 ew::Camera camera;
 ew::CameraController cameraController;
@@ -65,6 +65,10 @@ int main() {
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK); //Back face culling
 	glEnable(GL_DEPTH_TEST); //Depth testing
+
+	//EN::TransformHierarchy hierarchy = EN::TransformHierarchy(6);
+
+
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
