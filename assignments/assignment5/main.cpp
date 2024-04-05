@@ -15,11 +15,11 @@
 #include <ew/cameraController.h>
 #include <ew/texture.h>
 
-#include "assets/TransformHierarchy.h"
+#include "TransformHierarchy.h"
 
 ew::Camera camera;
 ew::CameraController cameraController;
-ew::Transform monkeyTransform;
+const unsigned int NUM_MONKIES = 7;
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
@@ -39,7 +39,7 @@ float prevFrameTime;
 float deltaTime;
 
 int main() {
-	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 5", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	GLuint rockTexture = ew::loadTexture("assets/Rock051_2K-JPG_Color.jpg");
@@ -66,9 +66,15 @@ int main() {
 	glCullFace(GL_BACK); //Back face culling
 	glEnable(GL_DEPTH_TEST); //Depth testing
 
-	//EN::TransformHierarchy hierarchy = EN::TransformHierarchy(6);
+	EN::TransformHierarchy hierarchy = EN::TransformHierarchy(NUM_MONKIES);
+	hierarchy.nodes[1].setValue(glm::vec3(-4.0f, 0.0f, 0.0f), glm::vec3(0.5f), 0);
+	hierarchy.nodes[2].setValue(glm::vec3(4.0f, 0.0f, 0.0f), glm::vec3(0.5f), 0);
+	hierarchy.nodes[3].setValue(glm::vec3(0.0f, -4.0f, 0.0f), glm::vec3(1), 1);
+	hierarchy.nodes[4].setValue(glm::vec3(0.0f, -4.0f, 0.0f), glm::vec3(1), 2);
+	hierarchy.nodes[5].setValue(glm::vec3(0.0f, -4.0f, 0.0f), glm::vec3(1), 3);
+	hierarchy.nodes[6].setValue(glm::vec3(0.0f, -4.0f, 0.0f), glm::vec3(1), 4);
 
-
+	double sinValue = 0;
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -79,10 +85,23 @@ int main() {
 
 		cameraController.move(window, &camera, deltaTime);
 
-		//Rotate model around Y axis
-		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
+		//All animation here
+		if (sinValue < 10.0)
+		{
+			sinValue += deltaTime;
+		}
+		else
+		{
+			sinValue -= deltaTime;
+		}
 
-		//transform.modelMatrix() combines translation, rotation, and scale into a 4x4 model matrix
+		hierarchy.nodes[0].localRotation = glm::rotate(hierarchy.nodes[0].localRotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
+		hierarchy.nodes[1].localRotation = glm::rotate(hierarchy.nodes[1].localRotation, deltaTime, glm::vec3(1.0, 0.0, 0.0));
+		hierarchy.nodes[2].localRotation = glm::rotate(hierarchy.nodes[2].localRotation, deltaTime, glm::vec3(-1.0, 0.0, 0.0));
+		hierarchy.nodes[5].localPosition = glm::vec3(glm::sin(sinValue) * 3, -4.0, 0.0);
+		hierarchy.nodes[6].localPosition = glm::vec3(glm::sin(sinValue) * 3, -4.0, 0.0);
+
+		hierarchy.SolveFK();
 
 		shader.setFloat("_Material.Ka", material.Ka);
 		shader.setFloat("_Material.Kd", material.Kd);
@@ -95,9 +114,13 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		shader.use();
 		//shader.setMat4("_Model", glm::mat4(1.0f));
-		shader.setMat4("_Model", monkeyTransform.modelMatrix());
-		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
-		monkeyModel.draw(); //Draws monkey model using current shader
+
+		for (int i = 0; i < NUM_MONKIES; i++)
+		{
+			shader.setMat4("_Model", hierarchy.nodes[i].globalTransform);
+			shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+			monkeyModel.draw(); //Draws monkey model using current shader
+		}
 
 		drawUI();
 

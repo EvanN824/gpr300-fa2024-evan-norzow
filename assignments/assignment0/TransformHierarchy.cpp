@@ -20,9 +20,3 @@ void EN::TransformHierarchy::SolveFK()
 		}
 	}
 }
-
-EN::NodeTransform* EN::TransformHierarchy::GetNode(unsigned int num)
-{
-	assert(num < nodeCount && num >= 0);
-	return nodes[num];
-}
